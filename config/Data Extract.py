@@ -1,4 +1,8 @@
 # Databricks notebook source
+# dbutils.fs.mkdirs("/tmp/matching")
+
+# COMMAND ----------
+
 # MAGIC %sh 
 # MAGIC rm -rf /dbfs/tmp/matching/
 # MAGIC mkdir /dbfs/tmp/matching/
@@ -12,4 +16,5 @@
 
 # COMMAND ----------
 
-
+# MAGIC %fs
+# MAGIC ls dbfs:/

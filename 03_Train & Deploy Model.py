@@ -45,7 +45,7 @@ experiment = mlflow.set_experiment(experiment_name)
 # COMMAND ----------
 
 # MAGIC %md ## Step 1: Prepare Pairs Data
-# MAGIC 
+# MAGIC
 # MAGIC Let's get started by retrieving the labeled pairs assembled in the last notebook: 
 
 # COMMAND ----------
@@ -144,9 +144,9 @@ print(
 # COMMAND ----------
 
 # MAGIC %md ## Step 2: Tune Model Parameters
-# MAGIC 
+# MAGIC
 # MAGIC We've approached the task of identifying matches as a binary classification problem. There are many, many algorithms we might employ for such this kind of problem.  We have decided to use the [XGBoostClassifier](https://xgboost.readthedocs.io/en/latest/python/python_api.html#xgboost.XGBClassifier) given its demonstrated performance.
-# MAGIC 
+# MAGIC
 # MAGIC The downside of using XGBoost is that it's models employ a large number of hyperparameters, many of which interact to have sizeable impacts on model performance.  To overcome this problem, we will run through a number of iterations of the model using different hyperparameter settings.  To ensure this is efficient, we will make use of [hyperopt](http://hyperopt.github.io/hyperopt/) to intelligently search the hyperparameter values and [distribute](http://hyperopt.github.io/hyperopt/scaleout/spark/) the iterative work across the workers of our cluster:
 
 # COMMAND ----------
@@ -194,7 +194,7 @@ def clean_params(hyperopt_params):
 # COMMAND ----------
 
 # MAGIC %md Our hyperparameter settings will be sent to a function which will train a model using these settings and return a score.  Hyperopt will seek to minimize this score.  Because we are using the [average precision score](https://scikit-learn.org/stable/modules/generated/sklearn.metrics.average_precision_score.html) to evaluate our model which produces a value between 0 and 1 and which improves as the score increases, we are multiplying this score by -1 to force hyperopt to maximize it:
-# MAGIC 
+# MAGIC
 # MAGIC **NOTE** For a broader discussion of average precision score in the context of class imbalances, please refer to the discussion in our notebook on [customer churn](https://databricks.com/notebooks/churn/3-model-selection.html).
 
 # COMMAND ----------
@@ -247,7 +247,7 @@ with mlflow.start_run(run_name='XGBClassifier'):
     fn=evaluate_model,
     space=search_space,
     algo=tpe.suggest,  # algorithm controlling how hyperopt navigates the search space
-    max_evals=1000,
+    max_evals=20,
     trials=SparkTrials(parallelism=sc.defaultParallelism),
     verbose=True
     )
@@ -316,7 +316,7 @@ with mlflow.start_run(run_name='abt-buy product match model') as run:
 # COMMAND ----------
 
 # MAGIC %md Unlike the pipelines and LSH models persisted earlier, our model is a true predictive model and as such can be managed through mlflow's [model registry](https://www.mlflow.org/docs/latest/model-registry.html). The registry allows us to move models through various stages as tests and other approval workflows are successfully executed. Because this notebook is an automated demonstration, we will simply push our model into production status through code:
-# MAGIC 
+# MAGIC
 # MAGIC **NOTE** The registry may need as much as 5 minutes to complete the backend work it takes to make a newly registered model available for production deployment.  Please allow a bit of time between the completion of the last cell and the execution of this next one for the following code to complete successfully.
 
 # COMMAND ----------
@@ -345,11 +345,11 @@ client.transition_model_version_stage(
 # COMMAND ----------
 
 # MAGIC %md ## Step 3: Deploy Product Matching Pipeline
-# MAGIC 
+# MAGIC
 # MAGIC Now we need to consider deployment.  When we have new products to compare, we need to transform the name, description and pricing attributes into features and then quickly identify candidates for a match.  We have trained pipelines and LSH models to enable this which we can retrieve from mlflow.  Once we've produced our candidate pairs, we then can use our trained model, also retrievable from mlflow, to score the pairs as a potential match:
-# MAGIC 
+# MAGIC
 # MAGIC <img src='https://brysmiwasb.blob.core.windows.net/demos/images/entityres_workflow2.png' width=800>
-# MAGIC 
+# MAGIC
 # MAGIC To setup this workflow, let's start with the retrieval of our assets from mlflow:
 
 # COMMAND ----------
@@ -558,7 +558,7 @@ pairs = (
 # MAGIC val squared_dist = udf { (v1: Vector, v2: Vector) =>
 # MAGIC  Vectors.sqdist(v1, v2)
 # MAGIC }
-# MAGIC 
+# MAGIC
 # MAGIC spark.udf.register("squared_dist", squared_dist)
 
 # COMMAND ----------
@@ -586,9 +586,9 @@ display(
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC &copy; 2022 Databricks, Inc. All rights reserved. The source in this notebook is provided subject to the Databricks License [https://databricks.com/db-license-source].  All included or referenced third party libraries are subject to the licenses set forth below.
-# MAGIC 
+# MAGIC
 # MAGIC | library / data source                  | description             | license    | source                                              |
 # MAGIC |----------------------------------------|-------------------------|------------|-----------------------------------------------------|
 # MAGIC | Abt-Buy                                | dataset                 | CC-BY 4.0  | https://dbs.uni-leipzig.de/research/projects/object_matching/benchmark_datasets_for_entity_resolution  |

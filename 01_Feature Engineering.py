@@ -32,11 +32,11 @@ mlflow.set_experiment(experiment_name)
 # COMMAND ----------
 
 # MAGIC %md ## Step 1: Access the Dataset
-# MAGIC 
+# MAGIC
 # MAGIC To demonstrate entity-resolution techniques, we will make use of the Abt-Buy dataset, which identifies products sold by online two companies, *i.e.* abt.com and buy.com, and provides a *golden-record* dataset matching products from both. This dataset (and many others) is made available by the [Database Group Leipzig](https://dbs.uni-leipzig.de/research/projects/object_matching/benchmark_datasets_for_entity_resolution) for the purpose of  evaluating entity-resolution techniques.  
-# MAGIC 
+# MAGIC
 # MAGIC Having downloaded the data from the website and uploaded the unzipped data files to the appropriate folders under a [mount point](https://docs.databricks.com/data/databricks-file-system.html) named */mnt/matching*. 
-# MAGIC 
+# MAGIC
 # MAGIC For illustration, we have automated this step and downloaded the data in a temporary folder */tmp/matching/*. 
 
 # COMMAND ----------
@@ -46,6 +46,10 @@ mlflow.set_experiment(experiment_name)
 # COMMAND ----------
 
 # MAGIC %md We can make the data accessible as follows:
+
+# COMMAND ----------
+
+from pyspark.sql.types import StructType, IntegerType, StringType, StructField
 
 # COMMAND ----------
 
@@ -133,7 +137,7 @@ display( spark.table('DELTA.`/tmp/matching/silver/abtbuy_matched`') )
 # COMMAND ----------
 
 # MAGIC %md ## Step 2: Create Features
-# MAGIC 
+# MAGIC
 # MAGIC Products from Abt and Buy will be compared based on names, descriptions and prices.  In the following steps, we will generate features for each of these attributes leveraging the unioned set of products from each set:
 
 # COMMAND ----------
@@ -163,19 +167,19 @@ display(all)
 # COMMAND ----------
 
 # MAGIC %md ### Step 2a: Name Features 
-# MAGIC 
+# MAGIC
 # MAGIC Names often provide a meaningful basis for comparisons but they can also include information that helps differentiate various similar offerings from the same vendor.  For example, you may be attempting to purchase a specific type of dishwasher and find it listed as *Frigidaire 24' White Built-In Dishwasher*.  But it could also be listed as *Fridgidaire 24' BuiltIn Dish Washer (White)*. While these minor variations are relatively easy for us as humans to sort through, for software, the problem requires a bit of creativity.
-# MAGIC 
+# MAGIC
 # MAGIC The initial sequence of steps we will employ to enable name comparisons will be:</p>
-# MAGIC 
+# MAGIC
 # MAGIC 1. Split names into individual words, *aka* [bag-of-words](https://en.wikipedia.org/wiki/Bag-of-words_model)
 # MAGIC 2. Remove any common [stop words](https://en.wikipedia.org/wiki/Stop_word) (like *the*, *and*, of, *etc.*)
 # MAGIC 3. Parse words into overlapping, three-character sequences, *aka* [n-grams](https://en.wikipedia.org/wiki/N-gram#:~:text=In%20the%20fields%20of%20computational,a%20text%20or%20speech%20corpus) or [shingles](https://en.wikipedia.org/wiki/W-shingling)
-# MAGIC 
+# MAGIC
 # MAGIC There's plenty of room for varying these steps and adding others, but our goal is a set of words or word-chunks that are representative of the name string.
-# MAGIC 
+# MAGIC
 # MAGIC The parsing of words into character-based n-grams will require us to explode the bag-of-words associated with each product name, split individual words into character-arrays, and then assemble the n-character combinations found in each word.  We will then need to collapse those n-grams back into a single array representing all the character-based n-grams found within a product name:
-# MAGIC 
+# MAGIC
 # MAGIC **NOTE** We are limiting displayed results to three records to reduce the size of this notebook.  This does not affect the business logic, only the output displayed in the notebook.
 
 # COMMAND ----------
@@ -261,11 +265,11 @@ display(
 # COMMAND ----------
 
 # MAGIC %md With names re-organized as n-grams, we can now calculate a score for each based on its occurrence in both the individual product name as well as the overall set of product names in the dataset.  This is done through a simple [TF-IDF](https://en.wikipedia.org/wiki/Tf%E2%80%93idf) scoring mechanism which we will normalize using an [L2-normalization](https://machinelearningmastery.com/vector-norms-machine-learning/) as is standard for most TF-IDF scoring scenarios.
-# MAGIC 
+# MAGIC
 # MAGIC Here, we are implementing the term-frequency (TF) portion of the TF-IDF calculation with the *binary* argument set to *True*. This forces the TF value to be 1 if an n-gram is present.  In effect, this causes our TF-IDF scores to really be IDF-only scores.   
-# MAGIC 
+# MAGIC
 # MAGIC One last thing about the IDF calculation that's worth noting is that is lowers the value for n-grams as their frequency in the overall collection of n-grams increases (hence the *inverse* in inverse document frequency). As such, very common n-grams will receive little consideration in later evaluations but they will still take up space in your feature vector.  If you would like to exclude the most common n-grams, you might consider a function to remove n-grams from the dataset based on some relative threshold using something like a SQL Transformer. This isn't implemented here for the sake of simplicity:
-# MAGIC 
+# MAGIC
 # MAGIC **NOTE** For a more detailed examination of TF-IDF scoring and L2-normalization, please review the notebooks associated with our [recommender blog post](https://databricks.com/blog/2020/12/18/personalizing-the-customer-experience-with-recommendations.html).
 
 # COMMAND ----------
@@ -310,11 +314,11 @@ display(
 # COMMAND ----------
 
 # MAGIC %md ### Step 2b: Description Features
-# MAGIC 
+# MAGIC
 # MAGIC We rarely have just the name to go off of for determining a match.  Information such as a product's description can help us refine our comparison of products, distinguishing similarly named but otherwise different products.
-# MAGIC 
+# MAGIC
 # MAGIC The steps we take to calculate the distances between product descriptions are very similiar to those we might take with product name except that we might examine the lengthier product descriptions in terms of content similarity as opposed to the word-construction comparisons supported by the character-based n-grams.  One approach for this is simply to calculate a word-based n-gram for each product:
-# MAGIC 
+# MAGIC
 # MAGIC **NOTE** Because there may be NULL descriptions in the dataset, we replaced NULL values with empty strings in an earlier step.
 
 # COMMAND ----------
@@ -455,9 +459,9 @@ display(
 # COMMAND ----------
 
 # MAGIC %md ### Step 2c: Price Features
-# MAGIC 
+# MAGIC
 # MAGIC The last attribute we will consider is price. It's reasonable to think that two sites selling the same product should offer similar (but not necessarily identical) prices. 
-# MAGIC 
+# MAGIC
 # MAGIC Price is a fairly straightforward feature, and as such, the only thing we need to do is convert the scalar prices into the vector representations our later steps require:
 
 # COMMAND ----------
@@ -480,7 +484,7 @@ display(
 # COMMAND ----------
 
 # MAGIC %md ## Step 3: Persist Features & Pipelines
-# MAGIC 
+# MAGIC
 # MAGIC We now have features derived from each product's name, description and price.  We will persist these data for use in later steps:
 
 # COMMAND ----------
@@ -533,9 +537,9 @@ with mlflow.start_run(run_name=model_name) as run:
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC &copy; 2022 Databricks, Inc. All rights reserved. The source in this notebook is provided subject to the Databricks License [https://databricks.com/db-license-source].  All included or referenced third party libraries are subject to the licenses set forth below.
-# MAGIC 
+# MAGIC
 # MAGIC | library / data source                  | description             | license    | source                                              |
 # MAGIC |----------------------------------------|-------------------------|------------|-----------------------------------------------------|
 # MAGIC | Abt-Buy                                | dataset                 | CC-BY 4.0  | https://dbs.uni-leipzig.de/research/projects/object_matching/benchmark_datasets_for_entity_resolution  |
